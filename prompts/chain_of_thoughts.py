@@ -8,6 +8,8 @@ load_dotenv()
 
 api_key = os.getenv("GEMINI_API_KEY")
 
+
+print("\n\n\n\n\n")
 SYSTEM_PROMPT = """
     You are an AI Assistant in resolving user queries using the chain of thoughts.
     You work on Start, Plan and OUTPUT steps.
@@ -65,32 +67,35 @@ client = OpenAI(
 )
 
 
-response = client.chat.completions.create(
-    model="gemini-2.5-flash",
-    response_format={"type": "json_object"},
-    messages=[
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": "Write a code in js to add n numbers?"},
-        # Lets keep manually adding few PLAN steps to guide the model
-        {
-            "role": "user",
-            "content": json.dumps(
-                {
-                    "step": "PLAN",
-                    "content": "The user wants a JavaScript function to sum 'n' numbers. I should define a function that can accept multiple arguments.",
-                }
-            ),
-        },
-        {
-            "role": "user",
-            "content": json.dumps(
-                {
-                    "step": "PLAN",
-                    "content": "I need to implement a JavaScript function that takes multiple numbers as arguments and returns their sum. I will use the rest parameter syntax (...args) to collect all arguments into an array.",
-                }
-            ),
-        },
-    ],
-)
+message_history = [
+    {"role": "system", "content": SYSTEM_PROMPT},
+]
 
-print(response.choices[0].message.content)
+user_query = input("Please give me your prompt please...👨‍💼")
+message_history.append({"role": "user", "content": user_query})
+
+
+while True:
+    response = client.chat.completions.create(
+        model="gemini-2.5-flash",
+        response_format={"type": "json_object"},
+        messages=message_history,
+    )
+
+    raw_result = response.choices[0].message.content
+    message_history.append({"role": "assistant", "content": raw_result})
+    parsed_result = json.loads(raw_result)
+
+    if parsed_result.get("step") == "START":
+        print("🤷‍♀️", parsed_result.get("content"))
+        continue
+    if parsed_result.get("step") == "PLAN":
+        print("🙌", parsed_result.get("content"))
+        continue
+    if parsed_result.get("step") == "OUTPUT":
+        print("😍", parsed_result.get("content"))
+        break
+    break
+
+
+print("\n\n\n\n\n")
