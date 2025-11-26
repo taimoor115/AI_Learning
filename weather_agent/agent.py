@@ -55,7 +55,15 @@ def getWeatherData(long, lat):
     return {}
 
 
-available_tools = {"_getWeatherLocation": getWeatherLocation}
+def runSystemCommand(cmd: str):
+    result = os.system(cmd)
+    return result
+
+
+available_tools = {
+    "_getWeatherLocation": getWeatherLocation,
+    "_run_command": runSystemCommand,
+}
 
 SYSTEM_PROMPT = """
 You are an AI Assistant that resolves user queries using tools.
@@ -68,6 +76,7 @@ RULES:
 
 AVAILABLE TOOLS:
 _getWeatherLocation(city:str) — Returns temperature of the city in Celsius.
+_run_command: (cmd: str) - Takes system command as string and execute the command in user sytem and return the output of this command.
 
 JSON FORMAT EXAMPLES:
 
@@ -111,53 +120,53 @@ message_history = [{"role": "system", "content": SYSTEM_PROMPT}]
 
 user_query = input("Please give me your prompt please...👨‍💼 ")
 message_history.append({"role": "user", "content": user_query})
-
 while True:
-    response = client.chat.completions.create(
-        model="gpt-4o",
-        response_format=MyOutputModel,
-        messages=message_history,
-    )
-
-    raw_result = response.choices[0].message.content
-    message_history.append({"role": "assistant", "content": raw_result})
-    parsed = json.loads(raw_result)
-
-    step = parsed.get("step")
-    tool = parsed.get("tool")
-
-    if step == "START":
-        print("🤷‍♀️", parsed.get("content"))
-        continue
-
-    if step == "PLAN" and tool is None:
-        print("🙌", parsed.get("content"))
-        continue
-
-    if tool is not None:
-        tool_func = available_tools.get(tool)
-        tool_input = parsed.get("input")
-
-        print("🐱‍🏍 Calling tool:", {"tool": tool, "input": tool_input})
-
-        result = tool_func(tool_input)
-        print("🛠️ Tool output:", result)
-
-        message_history.append(
-            {
-                "role": "developer",
-                "content": json.dumps(
-                    {
-                        "step": "OBSERVE",
-                        "tool": tool,
-                        "input": tool_input,
-                        "output": result,
-                    }
-                ),
-            }
+    while True:
+        response = client.chat.completions.parse(
+            model="gpt-4o",
+            response_format=MyOutputModel,
+            messages=message_history,
         )
-        continue
 
-    if step == "OUTPUT":
-        print("😍", parsed.get("content"))
-        break
+        raw_result = response.choices[0].message.content
+        message_history.append({"role": "assistant", "content": raw_result})
+        parsed = json.loads(raw_result)
+
+        step = parsed.get("step")
+        tool = parsed.get("tool")
+
+        if step == "START":
+            print("🤷‍♀️", parsed.get("content"))
+            continue
+
+        if step == "PLAN" and tool is None:
+            print("🙌", parsed.get("content"))
+            continue
+
+        if tool is not None:
+            tool_func = available_tools.get(tool)
+            tool_input = parsed.get("input")
+
+            print("🐱‍🏍 Calling tool:", {"tool": tool, "input": tool_input})
+
+            result = tool_func(tool_input)
+            print("🛠️ Tool output:", result)
+
+            message_history.append(
+                {
+                    "role": "developer",
+                    "content": json.dumps(
+                        {
+                            "step": "OBSERVE",
+                            "tool": tool,
+                            "input": tool_input,
+                            "output": result,
+                        }
+                    ),
+                }
+            )
+            continue
+
+        if step == "OUTPUT":
+            print("😍", parsed.get("content"))
+            break
